@@ -1,12 +1,28 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppConfig } from './app-config';
 
 describe('AppConfig', () => {
+  beforeEach(() => {
+    vi.stubEnv('REDIS_URL', 'redis://localhost:6379');
+    vi.stubEnv('REDIS_PREFIX', 'test');
+    vi.stubEnv('TRUSTED_PROXIES', '');
+  });
   afterEach(() => vi.unstubAllEnvs());
 
   it('validates required database configuration', () => {
     vi.stubEnv('DATABASE_URL', '');
     expect(() => new AppConfig()).toThrow('DATABASE_URL is required');
+  });
+
+  it('requires Redis and validates namespaces', () => {
+    vi.stubEnv('DATABASE_URL', 'postgresql://localhost/tempchat');
+    vi.stubEnv('REDIS_URL', '');
+    expect(() => new AppConfig()).toThrow('REDIS_URL is required');
+    vi.stubEnv('REDIS_URL', 'http://localhost:6379');
+    expect(() => new AppConfig()).toThrow('REDIS_URL must use');
+    vi.stubEnv('REDIS_URL', 'redis://localhost:6379');
+    vi.stubEnv('REDIS_PREFIX', 'bad:prefix');
+    expect(() => new AppConfig()).toThrow('REDIS_PREFIX');
   });
 
   it('uses local defaults and snapshots configuration for an application', () => {

@@ -30,6 +30,9 @@ describe('RoomsService', () => {
       databaseUrl: 'postgresql://localhost/not-used',
       webOrigin: 'http://localhost:5173',
       port: 3001,
+      redisUrl: 'redis://localhost:6379',
+      redisPrefix: 'test',
+      trustedProxies: [],
     });
     repository = new RoomsRepository(database);
     service = new RoomsService(repository);

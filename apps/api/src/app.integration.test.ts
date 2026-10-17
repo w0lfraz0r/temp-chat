@@ -16,6 +16,8 @@ import { DatabaseService } from './database/database.service';
 import { ExpiryService } from './expiry/expiry.service';
 import { migrate } from './database/migrate';
 import { RoomsService } from './rooms/rooms.service';
+import { RedisService } from './redis/redis.service';
+import { ApplicationState } from './common/application-state.service';
 import {
   decrypt,
   deriveKeys,
@@ -36,6 +38,8 @@ describe('PostgreSQL + HTTP + Socket.IO lifecycle', () => {
   const sockets: TestSocket[] = [];
   const previousDatabaseUrl = process.env.DATABASE_URL;
   const previousOrigin = process.env.WEB_ORIGIN;
+  const previousRedisUrl = process.env.REDIS_URL;
+  const previousPrefix = process.env.REDIS_PREFIX;
 
   async function start() {
     app = await createApp();
@@ -56,6 +60,10 @@ describe('PostgreSQL + HTTP + Socket.IO lifecycle', () => {
     databaseUrl.searchParams.set('options', `-c search_path=${schema}`);
     process.env.DATABASE_URL = databaseUrl.toString();
     process.env.WEB_ORIGIN = origin;
+    if (!process.env.TEST_REDIS_URL)
+      throw new Error('TEST_REDIS_URL is required.');
+    process.env.REDIS_URL = process.env.TEST_REDIS_URL;
+    process.env.REDIS_PREFIX = `app-${randomUUID()}`;
     keys = await deriveKeys(
       newInviteSecret(),
       'a unique integration passphrase',
@@ -70,7 +78,12 @@ describe('PostgreSQL + HTTP + Socket.IO lifecycle', () => {
   });
 
   afterAll(async () => {
-    if (app) await app.close();
+    if (app) {
+      const redis = app.get(RedisService);
+      const keys = await redis.command.keys(redis.key('*'));
+      if (keys.length) await redis.command.del(keys);
+      await app.close();
+    }
     if (admin) {
       await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
       await admin.end();
@@ -79,6 +92,10 @@ describe('PostgreSQL + HTTP + Socket.IO lifecycle', () => {
     else process.env.DATABASE_URL = previousDatabaseUrl;
     if (previousOrigin === undefined) delete process.env.WEB_ORIGIN;
     else process.env.WEB_ORIGIN = previousOrigin;
+    if (previousRedisUrl === undefined) delete process.env.REDIS_URL;
+    else process.env.REDIS_URL = previousRedisUrl;
+    if (previousPrefix === undefined) delete process.env.REDIS_PREFIX;
+    else process.env.REDIS_PREFIX = previousPrefix;
   });
 
   async function post(path: string, body: object) {
@@ -471,5 +488,15 @@ describe('PostgreSQL + HTTP + Socket.IO lifecycle', () => {
     await expect(
       app.get(RoomsService).join(creator.roomId, keys.guestAccessToken),
     ).rejects.toThrow();
+  });
+
+  it('remains live but rejects readiness and new admissions while draining', async () => {
+    app.get(ApplicationState).drain();
+    expect((await fetch(`${url}/health/live`)).status).toBe(200);
+    expect((await fetch(`${url}/health/ready`)).status).toBe(503);
+    expect(
+      (await post('/rooms', { guestAccessToken: keys.guestAccessToken }))
+        .status,
+    ).toBe(503);
   });
 });

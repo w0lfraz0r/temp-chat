@@ -44,6 +44,7 @@ export class ChatGateway
         await this.chat.authenticate(socket);
         next();
       } catch (error) {
+        await this.handleDisconnect(socket);
         if (error instanceof HttpException || error instanceof ChatError) {
           next(new Error(error.message));
         } else {
@@ -56,12 +57,25 @@ export class ChatGateway
     });
   }
 
-  handleConnection(socket: ChatSocket) {
-    this.chat.connect(socket);
+  async handleConnection(socket: ChatSocket) {
+    try {
+      await this.chat.connect(socket);
+    } catch {
+      this.logger.warn(
+        'Connection ownership unavailable; disconnecting socket.',
+      );
+      socket.disconnect(true);
+    }
   }
 
-  handleDisconnect(socket: ChatSocket) {
-    this.chat.disconnect(socket);
+  async handleDisconnect(socket: ChatSocket) {
+    try {
+      await this.chat.disconnect(socket);
+    } catch {
+      this.logger.error(
+        'Disconnect coordination failed; ownership lease will expire.',
+      );
+    }
   }
 
   @SubscribeMessage('ready')
@@ -72,8 +86,8 @@ export class ChatGateway
     if (typeof ack !== 'function') return void socket.disconnect(true);
     try {
       const session = await this.chat.ready(socket);
+      await this.chat.publishPresence(session.roomId);
       ack({ ok: true, data: session });
-      this.chat.publishPresence(session.roomId);
     } catch (error) {
       ack(this.failure(error));
       socket.disconnect(true);
@@ -88,7 +102,7 @@ export class ChatGateway
   ) {
     if (typeof ack !== 'function') return void socket.disconnect(true);
     try {
-      this.chat.takeMessageLimit(socket);
+      await this.chat.takeMessageLimit(socket);
       const parsed = envelopeSchema.safeParse(body);
       if (!parsed.success) throw new ChatError('Invalid encrypted message.');
       await this.chat.relay(socket, parsed.data);
