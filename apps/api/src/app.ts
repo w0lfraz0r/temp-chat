@@ -13,7 +13,7 @@ export class AppModule {}
 
 export async function createApp() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  app.use(helmet());
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(json({ limit: '8kb' }));
   app.enableCors({ origin: config().webOrigin, methods: ['POST'] });
   app.enableShutdownHooks();
