@@ -20,9 +20,8 @@ export const envelopeSchema = z
   })
   .strict();
 export type Envelope = z.infer<typeof envelopeSchema>;
-export interface IncomingMessage extends Envelope {
-  sender: Participant;
-}
+export const incomingMessageSchema = envelopeSchema.extend({ sender: participantSchema });
+export type IncomingMessage = z.infer<typeof incomingMessageSchema>;
 export const roomSessionSchema = credentialsSchema.extend({
   participant: participantSchema,
   expiresAt: z.string().datetime(),

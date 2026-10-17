@@ -3,7 +3,7 @@ import { io, type Socket } from 'socket.io-client';
 import {
   MAX_MESSAGE_BYTES,
   MAX_MESSAGES_PER_ROOM,
-  participantSchema,
+  incomingMessageSchema,
   type ClientEvents,
   type RoomSession,
   type ServerEvents,
@@ -288,8 +288,9 @@ function Chat({ session, onForget }: { session: ActiveSession; onForget: () => v
     });
     socket.on('message', async (message, ack) => {
       if (typeof ack !== 'function') return;
-      const parsedSender = participantSchema.safeParse(message.sender);
-      if (!parsedSender.success || parsedSender.data === participant) {
+      const parsed = incomingMessageSchema.safeParse(message);
+      if (!parsed.success || parsed.data.sender === participant) {
+        setError('An invalid incoming message was rejected.');
         ack({ ok: false, error: 'Invalid sender.' });
         return;
       }
@@ -303,7 +304,7 @@ function Chat({ session, onForget }: { session: ActiveSession; onForget: () => v
       }
       seen.current.add(message.id);
       try {
-        const text = await decrypt(session.encryptionKey, roomId, parsedSender.data, message);
+        const text = await decrypt(session.encryptionKey, roomId, parsed.data.sender, parsed.data);
         if (!alive || !socket.connected) return;
         setMessages((current) => [...current, { id: message.id, text, own: false, status: 'Received' }]);
         ack({ ok: true, data: undefined });

@@ -86,7 +86,7 @@ export async function encrypt(
 export async function decrypt(
   key: CryptoKey, roomId: string, sender: Participant, message: Envelope,
 ): Promise<string> {
-  envelopeSchema.parse(message);
+  envelopeSchema.parse({ id: message.id, iv: message.iv, ciphertext: message.ciphertext });
   const plaintext = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM', iv: unbase64url(message.iv),
