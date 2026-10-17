@@ -24,6 +24,46 @@ This is shared-key encryption, not forward secrecy. A person who has the passphr
 | `packages/protocol` | Shared Zod schemas and event types |
 | `compose.yaml` | Local PostgreSQL, plus an optional full app container |
 
+### API architecture
+
+The API uses feature modules with explicit provider imports and exports:
+
+```text
+apps/api/src/
+  main.ts                 Startup, migrations, and listening
+  app.module.ts           Application module composition
+  create-app.ts           Shared HTTP/bootstrap configuration
+  config/                 Validated, injectable application configuration
+  database/               PostgreSQL pool lifecycle and migration runner
+  rooms/
+    dto/                  Request types inferred from shared Zod schemas
+    rooms.controller.ts   HTTP routes and validation pipes
+    rooms.service.ts      Credentials, admission rules, and session responses
+    rooms.repository.ts   SQL, atomic guest claims, and receipt transactions
+    rooms.module.ts       Rooms feature wiring
+  chat/
+    chat.gateway.ts       Nest websocket handlers and acknowledgement errors
+    chat.service.ts       Authentication, readiness, presence, and relay logic
+    chat.transport.ts     Local Socket.IO delivery, presence, and disconnects
+    chat.module.ts        Chat feature wiring
+  presence/               Participant-to-socket ownership
+  rate-limit/             Shared limiter provider and HTTP guard/decorator
+  expiry/                 Room cleanup lifecycle and expiry notifications
+  common/pipes/           Reusable Zod validation pipe
+```
+
+HTTP rate-limit guards run before validation pipes, so malformed attempts still
+consume their action's quota. HTTP and websocket handlers use the same limiter
+provider. Request validation reuses the protocol's Zod schemas rather than
+maintaining a second set of class-validator rules.
+
+This organization does **not** make the backend distributed yet. Presence, rate
+limits, readiness, and socket lookup are still process-local. Phase 2 must add
+shared state and atomic ownership operations, cross-instance Socket.IO delivery
+and acknowledgements, coordinated expiry notifications, and multi-instance tests.
+The existing PostgreSQL conditional update already admits only one guest under
+concurrent joins; moving that admission rule to a Redis lock is unnecessary.
+
 ## Requirements
 
 - Node.js 22.12 or newer
@@ -79,7 +119,17 @@ npm run build       # protocol, API, and web
 npm run typecheck
 npm run lint
 npm test
+npm run test:integration # requires TEST_DATABASE_URL (see below)
 npm run format
+```
+
+The integration suite starts the real Nest application and exercises PostgreSQL,
+HTTP, and Socket.IO. Set `TEST_DATABASE_URL` to a disposable local database. The
+suite creates and removes its own isolated schema and runs migrations twice to
+check idempotency:
+
+```bash
+TEST_DATABASE_URL=postgresql://user:password@localhost:55432/tempchat npm run test:integration
 ```
 
 ## Using a room

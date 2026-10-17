@@ -2,12 +2,11 @@ import {
   Inject,
   Injectable,
   Logger,
-  Module,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { ChatGateway, ChatModule } from './chat';
-import { RoomsModule, RoomsService } from './rooms';
+import { ChatService } from '../chat/chat.service';
+import { RoomsService } from '../rooms/rooms.service';
 
 @Injectable()
 export class ExpiryService implements OnModuleInit, OnModuleDestroy {
@@ -17,13 +16,15 @@ export class ExpiryService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     @Inject(RoomsService) private readonly rooms: RoomsService,
-    @Inject(ChatGateway) private readonly chat: ChatGateway,
+    @Inject(ChatService) private readonly chat: ChatService,
   ) {}
 
   onModuleInit() {
     this.timer = setInterval(() => {
       if (!this.running) {
-        this.running = this.tick().finally(() => { this.running = undefined; });
+        this.running = this.tick().finally(() => {
+          this.running = undefined;
+        });
       }
     }, 1000).unref();
   }
@@ -43,6 +44,3 @@ export class ExpiryService implements OnModuleInit, OnModuleDestroy {
     await this.running;
   }
 }
-
-@Module({ imports: [RoomsModule, ChatModule], providers: [ExpiryService] })
-export class ExpiryModule {}

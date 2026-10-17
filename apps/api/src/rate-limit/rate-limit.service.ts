@@ -1,8 +1,11 @@
 import { HttpException, Injectable, OnModuleDestroy } from '@nestjs/common';
 
 @Injectable()
-export class RateLimit implements OnModuleDestroy {
-  private readonly buckets = new Map<string, { count: number; reset: number }>();
+export class RateLimitService implements OnModuleDestroy {
+  private readonly buckets = new Map<
+    string,
+    { count: number; reset: number }
+  >();
   private readonly timer = setInterval(() => {
     const now = Date.now();
     for (const [key, value] of this.buckets) {
@@ -21,7 +24,10 @@ export class RateLimit implements OnModuleDestroy {
       this.buckets.set(key, bucket);
     }
     if (++bucket.count > limit) {
-      throw new HttpException('Too many attempts. Please try again later.', 429);
+      throw new HttpException(
+        'Too many attempts. Please try again later.',
+        429,
+      );
     }
   }
 

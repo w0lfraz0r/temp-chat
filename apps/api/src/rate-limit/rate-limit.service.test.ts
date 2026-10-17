@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RateLimit } from './rate-limit';
+import { RateLimitService } from './rate-limit.service';
 
 describe('single-instance rate limits', () => {
-  let limiter: RateLimit | undefined;
+  let limiter: RateLimitService | undefined;
   afterEach(() => {
     limiter?.onModuleDestroy();
     vi.useRealTimers();
@@ -10,7 +10,7 @@ describe('single-instance rate limits', () => {
 
   it('rejects requests beyond the limit and reopens after the window', () => {
     vi.useFakeTimers();
-    limiter = new RateLimit();
+    limiter = new RateLimitService();
     limiter.take('client', 2, 1000);
     limiter.take('client', 2, 1000);
     expect(() => limiter!.take('client', 2, 1000)).toThrow('Too many attempts');
@@ -19,7 +19,7 @@ describe('single-instance rate limits', () => {
   });
 
   it('isolates clients and action buckets', () => {
-    limiter = new RateLimit();
+    limiter = new RateLimitService();
     limiter.take('create:a', 1, 1000);
     expect(() => limiter!.take('join:a', 1, 1000)).not.toThrow();
     expect(() => limiter!.take('create:b', 1, 1000)).not.toThrow();

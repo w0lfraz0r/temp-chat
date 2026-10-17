@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PresenceService } from './presence';
+import { PresenceService } from './presence.service';
 
 describe('presence and socket replacement', () => {
   it('tracks peers and ignores a stale socket disconnect', () => {

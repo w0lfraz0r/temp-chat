@@ -9,7 +9,7 @@
     "typecheck": "npm run build -w @temp-chat/protocol && npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "npm run build -w @temp-chat/protocol && vitest run",
-    "test:integration": "npm run build -w @temp-chat/protocol && vitest run --config vitest.integration.config.ts",
+    "test:integration": "npm run build -w @temp-chat/protocol && vitest run --config vitest.integration.config.mts",
     "format": "prettier --write ."
   },
   "devDependencies": {

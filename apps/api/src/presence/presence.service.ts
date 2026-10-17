@@ -1,4 +1,4 @@
-import { Injectable, Module } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { Participant } from '@temp-chat/protocol';
 
 @Injectable()
@@ -31,6 +31,3 @@ export class PresenceService {
     return this.socket(roomId, participant === 'creator' ? 'guest' : 'creator');
   }
 }
-
-@Module({ providers: [PresenceService], exports: [PresenceService] })
-export class PresenceModule {}

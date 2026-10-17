@@ -1,23 +1,29 @@
 import 'reflect-metadata';
-import { createApp } from './app';
-import { config } from './config';
-import { migrate } from './migrate';
+import { createApp } from './create-app';
+import { AppConfig } from './config/app-config';
+import { migrate } from './database/migrate';
 
 async function main() {
+  const config = new AppConfig();
   for (let attempt = 1; ; attempt++) {
     try {
-      await migrate();
+      await migrate(config);
       break;
     } catch (error) {
-      const retryable = typeof error === 'object' && error !== null && 'code' in error &&
+      const retryable =
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
         ['ECONNREFUSED', '57P03', 'EAI_AGAIN'].includes(String(error.code));
       if (!retryable || attempt >= 20) throw error;
-      console.warn(`PostgreSQL is not ready; retrying startup (${attempt}/20).`);
+      console.warn(
+        `PostgreSQL is not ready; retrying startup (${attempt}/20).`,
+      );
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
   const app = await createApp();
-  await app.listen(config().port, '0.0.0.0');
+  await app.listen(app.get(AppConfig).port, '0.0.0.0');
 }
 
 main().catch((error: unknown) => {
